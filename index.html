@@ -1,0 +1,1703 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PLC 도면 자동 작화 에이전트</title>
+
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17231f;
+      --muted: #78827d;
+      --line: #e8ece9;
+      --canvas: #f6f8f6;
+      --green: #187a56;
+      --green-dark: #105d40;
+      --mint: #e8f4ed;
+      --amber: #a96312;
+      --amber-bg: #fff3df;
+      --red: #b7493d;
+      --red-bg: #fdf0ed;
+      --shadow: 0 12px 32px rgba(28, 48, 38, .06);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: Inter, Pretendard, "Noto Sans KR",
+        "Malgun Gothic", sans-serif;
+      font-size: 14px;
+    }
+
+    button { font: inherit; cursor: pointer; }
+
+    .app { display: flex; min-height: 100vh; }
+
+    aside {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 246px;
+      background: #fff;
+      border-right: 1px solid var(--line);
+      padding: 25px 16px;
+      display: flex;
+      flex-direction: column;
+      z-index: 3;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 0 10px 30px;
+    }
+
+    .brand-mark {
+      width: 37px;
+      height: 37px;
+      border-radius: 12px;
+      background: var(--green);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: -1px;
+    }
+
+    .brand-name {
+      font-size: 14px;
+      font-weight: 750;
+      letter-spacing: -.3px;
+    }
+
+    .brand-sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .nav-label {
+      color: #9aa39e;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      padding: 0 11px;
+      margin: 15px 0 8px;
+    }
+
+    .nav-item {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      padding: 11px 12px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #64716a;
+      font-size: 13px;
+      margin: 2px 0;
+    }
+
+    .nav-item:hover {
+      background: #f6f8f6;
+      color: var(--ink);
+    }
+
+    .nav-item.active {
+      background: var(--mint);
+      color: var(--green-dark);
+      font-weight: 700;
+    }
+
+    .ico {
+      width: 18px;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    .nav-count {
+      margin-left: auto;
+      font-size: 10px;
+      color: #78827d;
+      background: #eef1ef;
+      border-radius: 12px;
+      padding: 3px 7px;
+    }
+
+    .side-bottom {
+      margin-top: auto;
+      border-top: 1px solid var(--line);
+      padding: 17px 9px 0;
+    }
+
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #eaf0ec;
+      color: #496556;
+      font-weight: 700;
+    }
+
+    .profile-name { font-weight: 650; font-size: 12px; }
+
+    .profile-role {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 3px;
+    }
+
+    main {
+      margin-left: 246px;
+      width: calc(100% - 246px);
+    }
+
+    header {
+      height: 68px;
+      background: rgba(255,255,255,.92);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 42px;
+    }
+
+    .crumb { color: var(--muted); font-size: 12px; }
+    .crumb b { color: var(--ink); font-weight: 650; }
+
+    .head-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .icon-button {
+      border: 1px solid var(--line);
+      background: white;
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      color: #68746d;
+    }
+
+    .status-live {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #68746d;
+      font-size: 11px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #38a775;
+      box-shadow: 0 0 0 3px #e7f5ed;
+    }
+
+    .content {
+      max-width: 1330px;
+      padding: 37px 42px 60px;
+      margin: auto;
+    }
+
+    .welcome {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 26px;
+    }
+
+    .eyebrow {
+      color: var(--green);
+      text-transform: uppercase;
+      letter-spacing: .11em;
+      font-weight: 750;
+      font-size: 10px;
+    }
+
+    h1 {
+      margin: 7px 0 7px;
+      font-size: 26px;
+      letter-spacing: -.8px;
+    }
+
+    .subtitle { color: var(--muted); font-size: 12px; }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: white;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #435149;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .btn:hover { border-color: #b7c8bd; }
+
+    .btn.primary {
+      color: white;
+      background: var(--green);
+      border-color: var(--green);
+      box-shadow: 0 4px 10px #187a5622;
+    }
+
+    .btn.primary:hover { background: var(--green-dark); }
+
+    .btn .plus {
+      margin-right: 6px;
+      font-size: 16px;
+      vertical-align: -1px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 22px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .metric { padding: 17px 18px 16px; }
+
+    .metric-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .metric-icon {
+      height: 28px;
+      width: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #eff6f1;
+      color: var(--green);
+      font-size: 14px;
+    }
+
+    .metric-value {
+      font-size: 25px;
+      font-weight: 740;
+      margin: 12px 0 5px;
+      letter-spacing: -.7px;
+    }
+
+    .metric-note { color: #89938d; font-size: 10px; }
+    .metric-note strong { color: var(--green); font-weight: 650; }
+
+    .columns {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr);
+      gap: 17px;
+      align-items: start;
+    }
+
+    .panel { padding: 20px; }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 17px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 720;
+      letter-spacing: -.2px;
+    }
+
+    .panel-sub {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .text-link {
+      border: 0;
+      background: transparent;
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .project {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+
+    .project:last-child { margin-bottom: 0; }
+
+    .project-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .file-icon {
+      flex: 0 0 35px;
+      height: 38px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-size: 10px;
+      font-weight: 750;
+      color: #bb5144;
+      background: #fff0ed;
+    }
+
+    .file-icon.pdf { color: #a15a22; background: #fff3e5; }
+    .project-info { flex: 1; min-width: 0; }
+
+    .project-name {
+      font-weight: 680;
+      font-size: 12px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .project-meta {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 4px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 20px;
+      padding: 5px 8px;
+      font-size: 9px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.green { background: var(--mint); color: var(--green-dark); }
+    .badge.amber { background: var(--amber-bg); color: var(--amber); }
+    .badge.gray { background: #f0f2f1; color: #6b7770; }
+
+    .progress {
+      height: 4px;
+      background: #edf0ee;
+      border-radius: 5px;
+      margin: 13px 0 7px;
+      overflow: hidden;
+    }
+
+    .progress span {
+      height: 100%;
+      display: block;
+      background: #43a479;
+      border-radius: inherit;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      color: #89938d;
+      font-size: 9px;
+    }
+
+    .dropzone {
+      border: 1px dashed #cbd8cf;
+      background: #f9fbf9;
+      border-radius: 10px;
+      padding: 19px 15px;
+      text-align: center;
+      margin-bottom: 19px;
+      transition: .15s ease;
+    }
+
+    .dropzone:hover,
+    .dropzone.dragover {
+      border-color: var(--green);
+      background: #f0f8f3;
+    }
+
+    .upload-symbol {
+      width: 34px;
+      height: 34px;
+      background: var(--mint);
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--green);
+      margin: 0 auto 9px;
+      font-size: 16px;
+    }
+
+    .drop-title { font-size: 11px; font-weight: 700; }
+
+    .drop-hint {
+      color: var(--muted);
+      font-size: 9px;
+      margin: 5px 0 11px;
+    }
+
+    .btn.small { padding: 7px 10px; font-size: 10px; }
+
+    .safety {
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+      padding: 11px;
+      background: #f5f8f5;
+      border-radius: 8px;
+      color: #718078;
+      font-size: 10px;
+      line-height: 1.55;
+    }
+
+    .safety b { color: #46564c; }
+    .safety-icon { color: var(--green); }
+    .checks { margin-top: 18px; }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f2f0;
+      font-size: 10px;
+    }
+
+    .check-row:last-child { border-bottom: 0; }
+
+    .check-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #58665e;
+    }
+
+    .check-state { color: var(--muted); font-size: 9px; }
+
+    .state-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #52a878;
+    }
+
+    .state-dot.pending { background: #e3a343; }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr);
+      gap: 17px;
+      margin-top: 17px;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      white-space: nowrap;
+    }
+
+    th {
+      text-align: left;
+      color: #89938d;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 0 10px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #f0f2f0;
+      font-size: 10px;
+      color: #546159;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { color: var(--ink); font-weight: 650; }
+
+    .confidence {
+      display: inline-block;
+      width: 52px;
+      height: 4px;
+      background: #edf0ee;
+      border-radius: 4px;
+      vertical-align: middle;
+      margin-right: 5px;
+    }
+
+    .confidence i {
+      display: block;
+      height: 100%;
+      background: #53a67c;
+      border-radius: inherit;
+    }
+
+    .issue {
+      display: flex;
+      gap: 10px;
+      padding: 11px 0;
+      border-bottom: 1px solid #f0f2f0;
+    }
+
+    .issue:last-child { border: 0; }
+
+    .issue-symbol {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: var(--amber-bg);
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .issue-symbol.red { background: var(--red-bg); color: var(--red); }
+    .issue-title { font-size: 10px; font-weight: 650; }
+
+    .issue-desc {
+      color: var(--muted);
+      font-size: 9px;
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    .notice {
+      margin-top: 17px;
+      padding: 12px 14px;
+      background: #fff9ee;
+      border: 1px solid #f4e7cf;
+      color: #81643a;
+      border-radius: 9px;
+      font-size: 10px;
+      line-height: 1.6;
+    }
+
+    .notice b { color: #67491d; }
+    .analysis-panel { margin-top: 17px; }
+
+    .analysis-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 13px;
+      margin-bottom: 13px;
+      border-radius: 8px;
+      background: #f3f7f4;
+      color: #52635a;
+      font-size: 11px;
+    }
+
+    .analysis-status.error {
+      background: var(--red-bg);
+      color: var(--red);
+    }
+
+    .analysis-status .progress {
+      flex: 1;
+      margin: 0;
+      min-width: 70px;
+    }
+
+    .page-result {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      margin-top: 9px;
+      overflow: hidden;
+    }
+
+    .page-result summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      gap: 9px;
+      align-items: center;
+      padding: 12px;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .page-result summary::-webkit-details-marker { display: none; }
+
+    .page-result summary:after {
+      content: "＋";
+      margin-left: auto;
+      color: var(--muted);
+    }
+
+    .page-result[open] summary:after { content: "−"; }
+    .page-result summary .badge { margin-left: auto; }
+    .page-result summary:has(.badge):after { margin-left: 0; }
+
+    .page-content {
+      display: grid;
+      grid-template-columns: minmax(200px, .75fr) minmax(0, 1fr);
+      gap: 14px;
+      padding: 0 12px 12px;
+    }
+
+    .page-preview {
+      width: 100%;
+      max-height: 340px;
+      object-fit: contain;
+      object-position: top;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #f4f5f4;
+    }
+
+    .page-text {
+      margin: 0;
+      padding: 11px;
+      min-height: 100px;
+      max-height: 340px;
+      overflow: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      border-radius: 6px;
+      background: #f8faf8;
+      color: #435149;
+      font: 11px/1.65 ui-monospace, Consolas, monospace;
+    }
+
+    .analysis-empty {
+      padding: 17px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .chat-panel {
+      margin-bottom: 22px;
+      scroll-margin-top: 20px;
+    }
+
+    .chat-panel .panel-head {
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .chat-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    a.btn { display: inline-block; text-decoration: none; }
+
+    .chat-frame {
+      display: block;
+      width: 100%;
+      height: 560px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #f6f8f6;
+    }
+
+    .chat-help {
+      margin: 12px 0 0;
+      color: #64716a;
+      font-size: 11px;
+      line-height: 1.7;
+    }
+
+    .chat-help a { color: var(--green-dark); }
+
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 22px;
+      background: #20342a;
+      color: white;
+      padding: 12px 16px;
+      border-radius: 9px;
+      box-shadow: 0 8px 24px #17231f33;
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: .2s;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+    input[type=file] { display: none; }
+
+    @media (max-width: 1050px) {
+      aside { width: 205px; }
+
+      main {
+        margin-left: 205px;
+        width: calc(100% - 205px);
+      }
+
+      .content { padding: 28px 25px 45px; }
+      header { padding: 0 25px; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .columns, .bottom-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 650px) {
+      aside { width: 62px; padding: 19px 8px; }
+      .brand { padding: 0 4px 22px; }
+      .brand-mark { flex: 0 0 37px; }
+
+      .brand-name,
+      .brand-sub,
+      .nav-label,
+      .nav-item span:not(.ico),
+      .nav-count,
+      .side-bottom .profile-name,
+      .side-bottom .profile-role {
+        display: none;
+      }
+
+      .nav-item { justify-content: center; padding: 11px 0; }
+      .side-bottom { padding: 14px 5px 0; }
+
+      main {
+        margin-left: 62px;
+        width: calc(100% - 62px);
+      }
+
+      header { padding: 0 15px; height: 58px; }
+      .content { padding: 24px 14px 35px; }
+      .welcome { align-items: center; }
+      h1 { font-size: 21px; }
+      .welcome .btn { padding: 9px; font-size: 10px; }
+      .metrics { gap: 9px; }
+      .metric { padding: 13px; }
+      .metric-value { font-size: 21px; }
+      .metric-note { font-size: 9px; }
+      .panel { padding: 15px; }
+      .status-live { display: none; }
+      .chat-frame { height: 480px; }
+      .page-content { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <div class="brand-mark">PLC</div>
+        <div>
+          <div class="brand-name">DraftMate</div>
+          <div class="brand-sub">도면 자동 작화 에이전트</div>
+        </div>
+      </div>
+
+      <div class="nav-label">WORKSPACE</div>
+
+      <button class="nav-item active" data-view="대시보드">
+        <span class="ico">▦</span>
+        <span>대시보드</span>
+      </button>
+
+      <button class="nav-item" data-view="도면 분석">
+        <span class="ico">⌕</span>
+        <span>도면 분석</span>
+        <span class="nav-count">3</span>
+      </button>
+
+      <button class="nav-item" data-view="글로벌 라벨">
+        <span class="ico">⌗</span>
+        <span>글로벌 라벨</span>
+      </button>
+
+      <button class="nav-item" data-view="PLC 패널">
+        <span class="ico">▤</span>
+        <span>PLC 패널</span>
+      </button>
+
+      <button class="nav-item" data-view="I/O 배선표">
+        <span class="ico">⇄</span>
+        <span>I/O 배선표</span>
+      </button>
+
+      <div class="nav-label">REVIEW</div>
+
+      <button class="nav-item" data-view="검증 보고서">
+        <span class="ico">✓</span>
+        <span>검증 보고서</span>
+        <span class="nav-count">5</span>
+      </button>
+
+      <button class="nav-item" data-view="승인 이력">
+        <span class="ico">◷</span>
+        <span>승인 이력</span>
+      </button>
+
+      <div class="side-bottom">
+        <div class="profile">
+          <div class="avatar">김</div>
+          <div>
+            <div class="profile-name">김민수</div>
+            <div class="profile-role">설계 엔지니어</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div class="crumb">
+          워크스페이스&nbsp; / &nbsp;<b>대시보드</b>
+        </div>
+
+        <div class="head-actions">
+          <div class="status-live">
+            <span class="dot"></span>
+            모든 시스템 정상
+          </div>
+          <button class="icon-button" aria-label="알림">♧</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="welcome">
+          <div>
+            <div class="eyebrow">
+              MITSUBISHI GX WORKS2 · WORKSPACE
+            </div>
+            <h1>안녕하세요, 민수님 👋</h1>
+            <div class="subtitle">
+              프로젝트와 통계는 예시이며, 도면을 올리면
+              브라우저에서 실제 OCR을 시작합니다.
+            </div>
+          </div>
+
+          <button class="btn primary" id="new-project">
+            <span class="plus">＋</span>새 도면 분석
+          </button>
+        </section>
+
+        <section class="metrics">
+          <div class="card metric">
+            <div class="metric-top">
+              진행 중인 프로젝트
+              <span class="metric-icon">▱</span>
+            </div>
+            <div class="metric-value">03</div>
+            <div class="metric-note">
+              <strong>2건</strong> 검토 대기 중
+            </div>
+          </div>
+
+          <div class="card metric">
+            <div class="metric-top">
+              추출된 신호
+              <span class="metric-icon">⌗</span>
+            </div>
+            <div class="metric-value">128</div>
+            <div class="metric-note">
+              이번 달 <strong>+24개</strong>
+            </div>
+          </div>
+
+          <div class="card metric">
+            <div class="metric-top">
+              검증 필요 항목
+              <span
+                class="metric-icon"
+                style="background:#fff3df;color:#a96312"
+              >!</span>
+            </div>
+            <div class="metric-value">05</div>
+            <div class="metric-note">
+              기술 검토가 필요합니다
+            </div>
+          </div>
+
+          <div class="card metric">
+            <div class="metric-top">
+              승인 완료
+              <span class="metric-icon">✓</span>
+            </div>
+            <div class="metric-value">12</div>
+            <div class="metric-note">승인 전 변경 없음</div>
+          </div>
+        </section>
+
+        <section
+          class="card panel chat-panel"
+          id="copilot-chat"
+          aria-labelledby="copilot-chat-title"
+        >
+          <div class="panel-head">
+            <div>
+              <div class="panel-title" id="copilot-chat-title">
+                Copilot Studio · AI 상담
+              </div>
+              <div class="panel-sub">
+                도면 OCR과 함께 사용하는 대화형 에이전트
+              </div>
+            </div>
+
+            <div class="chat-actions">
+              <a
+                class="btn small"
+                href="https://copilotstudio.microsoft.com/environments/cfe472a7-8d6b-e57d-9381-81572ac35b9d/bots/cr72a_bot_4tPjqH/webchat?version=2&amp;enableFileAttachment=false&amp;cliAgent=true"
+                target="_blank"
+                rel="noopener noreferrer"
+              >새 창에서 열기 ↗</a>
+
+              <a
+                class="btn small"
+                href="/"
+                download="DraftMate.html"
+              >통합 HTML 코드 다운로드</a>
+            </div>
+          </div>
+
+          <iframe
+            class="chat-frame"
+            title="Copilot Studio AI 상담 챗봇"
+            src="https://copilotstudio.microsoft.com/environments/cfe472a7-8d6b-e57d-9381-81572ac35b9d/bots/cr72a_bot_4tPjqH/webchat?version=2&amp;enableFileAttachment=false&amp;cliAgent=true"
+            referrerpolicy="no-referrer"
+          ></iframe>
+
+          <p class="chat-help">
+            채팅에 직접 입력한 내용은 Microsoft Copilot Studio로
+            전송됩니다. 도면 파일과 OCR 결과는 채팅으로 자동 전송되지
+            않으며, 챗봇의 파일 첨부는 비활성화되어 있습니다.
+            채팅이 표시되지 않으면 <b>새 창에서 열기</b>를 눌러
+            로그인·에이전트 게시 및 접근 권한을 확인해 주세요.
+            현재 분석 결과는 새로고침하면 사라집니다.
+          </p>
+        </section>
+
+        <section class="columns">
+          <div class="card panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">최근 프로젝트</div>
+                <div class="panel-sub">
+                  도면 분석 및 산출물 진행 현황
+                </div>
+              </div>
+              <button class="text-link">전체 보기&nbsp; →</button>
+            </div>
+
+            <article class="project">
+              <div class="project-row">
+                <div class="file-icon">DWG</div>
+                <div class="project-info">
+                  <div class="project-name">
+                    컨베이어_라인_A_rev03.pdf
+                  </div>
+                  <div class="project-meta">
+                    12 페이지 · 수정 12분 전
+                  </div>
+                </div>
+                <span class="badge amber">검토 필요</span>
+              </div>
+              <div class="progress">
+                <span style="width:78%"></span>
+              </div>
+              <div class="progress-meta">
+                <span>분석 및 검증</span>
+                <span>78%</span>
+              </div>
+            </article>
+
+            <article class="project">
+              <div class="project-row">
+                <div class="file-icon pdf">PDF</div>
+                <div class="project-info">
+                  <div class="project-name">
+                    포장기_전장도면_v2.pdf
+                  </div>
+                  <div class="project-meta">
+                    8 페이지 · 수정 어제
+                  </div>
+                </div>
+                <span class="badge green">승인 대기</span>
+              </div>
+              <div class="progress">
+                <span style="width:100%"></span>
+              </div>
+              <div class="progress-meta">
+                <span>산출물 생성 완료</span>
+                <span>100%</span>
+              </div>
+            </article>
+
+            <article class="project">
+              <div class="project-row">
+                <div class="file-icon">PDF</div>
+                <div class="project-info">
+                  <div class="project-name">
+                    유틸리티_펌프제어_도면.pdf
+                  </div>
+                  <div class="project-meta">
+                    5 페이지 · 수정 10월 24일
+                  </div>
+                </div>
+                <span class="badge gray">분석 완료</span>
+              </div>
+              <div class="progress">
+                <span style="width:100%;background:#a5b4aa"></span>
+              </div>
+              <div class="progress-meta">
+                <span>검토 시작 전</span>
+                <span>100%</span>
+              </div>
+            </article>
+          </div>
+
+          <div class="card panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">새 도면 분석</div>
+                <div class="panel-sub">
+                  원본은 변경하지 않고 안전하게 분석합니다
+                </div>
+              </div>
+            </div>
+
+            <div class="dropzone" id="dropzone">
+              <div class="upload-symbol">↑</div>
+              <div class="drop-title">
+                도면 파일을 여기에 놓으세요
+              </div>
+              <div class="drop-hint">
+                PDF, PNG, JPG 지원 · 파일당 최대 50MB
+              </div>
+              <button class="btn small" id="choose-file">
+                파일 선택
+              </button>
+              <input
+                id="file-input"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg"
+              >
+            </div>
+
+            <div class="safety">
+              <span class="safety-icon">▣</span>
+              <span>
+                <b>원본 보호 활성화</b><br>
+                문서 파일은 서버로 전송하지 않고 이 브라우저에서
+                처리합니다. OCR 엔진과 언어 데이터는 외부 CDN에서
+                불러옵니다.
+              </span>
+            </div>
+
+            <div class="checks">
+              <div class="check-row">
+                <span class="check-name">
+                  <i class="state-dot"></i>
+                  파일 형식 및 페이지 확인
+                </span>
+                <span class="check-state">자동 검사</span>
+              </div>
+
+              <div class="check-row">
+                <span class="check-name">
+                  <i class="state-dot"></i>
+                  도면 근거 및 출처 추적
+                </span>
+                <span class="check-state">페이지 · 영역</span>
+              </div>
+
+              <div class="check-row">
+                <span class="check-name">
+                  <i class="state-dot pending"></i>
+                  사용자 검토 및 승인
+                </span>
+                <span class="check-state">항상 필요</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="bottom-grid">
+          <div class="card panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">
+                  추출 데이터 미리보기 · 샘플
+                </div>
+                <div class="panel-sub">
+                  화면 예시 데이터입니다.
+                  실제 OCR 결과는 아래 페이지별 결과에 표시됩니다.
+                </div>
+              </div>
+              <button class="text-link">
+                데이터 보기&nbsp; →
+              </button>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>신호명</th>
+                    <th>기기 태그</th>
+                    <th>유형</th>
+                    <th>PLC 주소</th>
+                    <th>근거</th>
+                    <th>상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>CONV_START_PB</td>
+                    <td>PB-101</td>
+                    <td>입력 · BOOL</td>
+                    <td>미정</td>
+                    <td>
+                      <span class="confidence">
+                        <i style="width:96%"></i>
+                      </span>
+                      96%
+                    </td>
+                    <td>
+                      <span class="badge green">확인됨</span>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td>CONV_MOTOR_RUN</td>
+                    <td>M-101</td>
+                    <td>출력 · BOOL</td>
+                    <td>미정</td>
+                    <td>
+                      <span class="confidence">
+                        <i style="width:91%"></i>
+                      </span>
+                      91%
+                    </td>
+                    <td>
+                      <span class="badge green">확인됨</span>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td>EMG_STOP_01</td>
+                    <td>ES-01</td>
+                    <td>안전 입력</td>
+                    <td>미정</td>
+                    <td>
+                      <span class="confidence">
+                        <i
+                          style="width:68%;background:#e2a443"
+                        ></i>
+                      </span>
+                      68%
+                    </td>
+                    <td>
+                      <span class="badge amber">검토 필요</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">검토 항목 · 샘플</div>
+                <div class="panel-sub">
+                  실제 도면 분석 결과가 아닌 화면 예시입니다.
+                </div>
+              </div>
+              <span class="badge amber">예시</span>
+            </div>
+
+            <div class="issue">
+              <div class="issue-symbol red">!</div>
+              <div>
+                <div class="issue-title">CPU 모델 미확인</div>
+                <div class="issue-desc">
+                  컨베이어_라인_A · 도면에서 CPU 모델 표기를
+                  찾을 수 없습니다.
+                </div>
+              </div>
+            </div>
+
+            <div class="issue">
+              <div class="issue-symbol">?</div>
+              <div>
+                <div class="issue-title">
+                  비상정지 신호 방향 확인
+                </div>
+                <div class="issue-desc">
+                  3페이지 · ES-01 배선 방향이 명확하지 않습니다.
+                </div>
+              </div>
+            </div>
+
+            <div class="issue">
+              <div class="issue-symbol">↔</div>
+              <div>
+                <div class="issue-title">단자대 번호 판독 대기</div>
+                <div class="issue-desc">
+                  2페이지 · TB-? 항목의 도면 영역을 확인해 주세요.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="card panel analysis-panel"
+          id="analysis-panel"
+          hidden
+        >
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">페이지별 OCR 결과</div>
+              <div class="panel-sub" id="analysis-filename">
+                업로드한 도면의 텍스트를 추출합니다.
+              </div>
+            </div>
+            <span class="badge gray" id="analysis-page-count">
+              대기 중
+            </span>
+          </div>
+
+          <div class="analysis-status" id="analysis-status">
+            <span class="state-dot pending"></span>
+            <span id="analysis-message">분석 준비 중</span>
+            <div class="progress">
+              <span id="analysis-progress" style="width:0%"></span>
+            </div>
+            <span id="analysis-percent">0%</span>
+          </div>
+
+          <div id="analysis-pages"></div>
+        </section>
+
+        <div class="notice">
+          <b>안전한 자동화 원칙</b>
+          분석 신뢰도는 참고 지표이며 실제 전기적 연결의 보증이
+          아닙니다. 주소·기종이 불명확한 항목은 미정으로 남기고,
+          모든 산출물은 사용자 승인 후에만 반영됩니다.
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js"></script>
+
+  <script type="module">
+    import * as pdfjsLib from
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs';
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+
+    window.__analysisReady = true;
+
+    const toast = document.getElementById('toast');
+    const fileInput = document.getElementById('file-input');
+    const analysisPanel = document.getElementById('analysis-panel');
+    const analysisStatus = document.getElementById('analysis-status');
+    const analysisPages = document.getElementById('analysis-pages');
+    const analysisMessage = document.getElementById('analysis-message');
+    const analysisProgress = document.getElementById('analysis-progress');
+    const analysisPercent = document.getElementById('analysis-percent');
+    const analysisPageCount = document.getElementById('analysis-page-count');
+
+    const uploadButtons = [
+      document.getElementById('choose-file'),
+      document.getElementById('new-project')
+    ];
+
+    let toastTimer;
+    let isAnalyzing = false;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+
+      toastTimer = setTimeout(
+        () => toast.classList.remove('show'),
+        2600
+      );
+    }
+
+    function setProgress(value) {
+      const percent = Math.max(
+        0,
+        Math.min(100, Math.round(value))
+      );
+
+      analysisProgress.style.width = `${percent}%`;
+      analysisPercent.textContent = `${percent}%`;
+    }
+
+    function setStatus(message, isError = false) {
+      analysisMessage.textContent = message;
+      analysisStatus.classList.toggle('error', isError);
+    }
+
+    function makePreview(sourceCanvas) {
+      const scale = Math.min(
+        1,
+        600 / sourceCanvas.width,
+        600 / sourceCanvas.height
+      );
+
+      const preview = document.createElement('canvas');
+
+      preview.width = Math.max(
+        1,
+        Math.round(sourceCanvas.width * scale)
+      );
+
+      preview.height = Math.max(
+        1,
+        Math.round(sourceCanvas.height * scale)
+      );
+
+      preview.getContext('2d').drawImage(
+        sourceCanvas,
+        0,
+        0,
+        preview.width,
+        preview.height
+      );
+
+      return preview.toDataURL('image/jpeg', 0.78);
+    }
+
+    function addPageResult(pageNumber, previewUrl, text, confidence) {
+      const details = document.createElement('details');
+      details.className = 'page-result';
+      details.open = pageNumber === 1;
+
+      const summary = document.createElement('summary');
+      summary.append(
+        document.createTextNode(`페이지 ${pageNumber}`)
+      );
+
+      const badge = document.createElement('span');
+      badge.className =
+        `badge ${confidence >= 75 ? 'green' : 'amber'}`;
+      badge.textContent =
+        `OCR 신뢰도 ${Math.round(confidence)}%`;
+      summary.append(badge);
+
+      const content = document.createElement('div');
+      content.className = 'page-content';
+
+      const preview = document.createElement('img');
+      preview.className = 'page-preview';
+      preview.src = previewUrl;
+      preview.alt = `${pageNumber}페이지 미리보기`;
+
+      const extractedText = document.createElement('pre');
+      extractedText.className = 'page-text';
+      extractedText.textContent = text.trim() ||
+        '읽힌 텍스트가 없습니다. 페이지를 직접 확인해 주세요.';
+
+      content.append(preview, extractedText);
+      details.append(summary, content);
+      analysisPages.append(details);
+    }
+
+    async function analyzeFile(file) {
+      if (isAnalyzing) return;
+
+      const extension = file.name.split('.').pop().toLowerCase();
+
+      if (!['pdf', 'png', 'jpg', 'jpeg'].includes(extension)) {
+        showToast('PDF, PNG, JPG 파일만 분석할 수 있습니다.');
+        return;
+      }
+
+      if (file.size > 50 * 1024 * 1024) {
+        showToast('파일 크기는 50MB 이하여야 합니다.');
+        return;
+      }
+
+      if (!window.Tesseract) {
+        analysisPanel.hidden = false;
+        setStatus(
+          'OCR 라이브러리를 불러오지 못했습니다. ' +
+          '인터넷 연결을 확인하고 새로고침해 주세요.',
+          true
+        );
+        showToast('OCR 라이브러리를 불러오지 못했습니다.');
+        return;
+      }
+
+      isAnalyzing = true;
+      analysisPanel.hidden = false;
+      analysisPages.replaceChildren();
+      analysisStatus.classList.remove('error');
+
+      document.getElementById('analysis-filename').textContent =
+        file.name;
+
+      analysisPageCount.textContent = '분석 중';
+      setProgress(0);
+      setStatus('파일을 확인하고 있습니다.');
+
+      uploadButtons.forEach(button => {
+        button.disabled = true;
+      });
+      fileInput.disabled = true;
+
+      let worker;
+
+      try {
+        let pageSources = [];
+
+        if (extension === 'pdf') {
+          const pdf = await pdfjsLib.getDocument({
+            data: await file.arrayBuffer()
+          }).promise;
+
+          if (!pdf.numPages) {
+            throw new Error('PDF에 읽을 페이지가 없습니다.');
+          }
+
+          analysisPageCount.textContent =
+            `${pdf.numPages}페이지`;
+
+          pageSources = Array.from(
+            { length: pdf.numPages },
+            (_, index) => ({
+              pageNumber: index + 1,
+              pdf
+            })
+          );
+        } else {
+          const image = await createImageBitmap(file);
+          const canvas = document.createElement('canvas');
+
+          canvas.width = image.width;
+          canvas.height = image.height;
+          canvas.getContext('2d').drawImage(image, 0, 0);
+          image.close();
+
+          analysisPageCount.textContent = '1페이지';
+
+          pageSources = [{
+            pageNumber: 1,
+            canvas
+          }];
+        }
+
+        setStatus(
+          `OCR 엔진을 준비하고 있습니다. (${pageSources.length}페이지)`
+        );
+
+        worker = await Tesseract.createWorker('kor+eng', 1, {
+          logger: message => {
+            if (
+              message.status === 'recognizing text' &&
+              typeof message.progress === 'number'
+            ) {
+              const progress =
+                (completedPages + message.progress) /
+                pageSources.length * 100;
+
+              setProgress(progress);
+
+              setStatus(
+                `페이지 ${completedPages + 1}/` +
+                `${pageSources.length} 텍스트 판독 중`
+              );
+            }
+          }
+        });
+
+        let completedPages = 0;
+
+        for (const source of pageSources) {
+          setStatus(
+            `페이지 ${source.pageNumber}/` +
+            `${pageSources.length} 준비 중`
+          );
+
+          let canvas = source.canvas;
+
+          if (source.pdf) {
+            const page = await source.pdf.getPage(
+              source.pageNumber
+            );
+
+            const viewport = page.getViewport({ scale: 2 });
+
+            const scale = Math.min(
+              1,
+              3000 / viewport.width,
+              3000 / viewport.height
+            );
+
+            const scaledViewport = page.getViewport({
+              scale: 2 * scale
+            });
+
+            canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(scaledViewport.width);
+            canvas.height = Math.ceil(scaledViewport.height);
+
+            await page.render({
+              canvasContext: canvas.getContext('2d'),
+              viewport: scaledViewport
+            }).promise;
+          }
+
+          const previewUrl = makePreview(canvas);
+          const result = await worker.recognize(canvas);
+
+          addPageResult(
+            source.pageNumber,
+            previewUrl,
+            result.data.text,
+            result.data.confidence
+          );
+
+          completedPages += 1;
+
+          setProgress(
+            completedPages / pageSources.length * 100
+          );
+
+          canvas.width = 0;
+          canvas.height = 0;
+        }
+
+        setStatus(
+          '페이지별 텍스트 추출이 완료되었습니다. ' +
+          '도면과 대조해 직접 검토해 주세요.'
+        );
+
+        analysisPageCount.textContent =
+          `${pageSources.length}페이지 완료`;
+
+        showToast(
+          `${file.name} 페이지별 OCR 분석이 완료되었습니다.`
+        );
+      } catch (error) {
+        const detail = error instanceof Error
+          ? error.message
+          : String(error);
+
+        setStatus(`분석 실패: ${detail}`, true);
+        analysisPageCount.textContent = '분석 실패';
+
+        showToast(
+          '분석에 실패했습니다. 파일 상태와 암호 설정을 확인해 주세요.'
+        );
+      } finally {
+        if (worker) await worker.terminate();
+
+        isAnalyzing = false;
+
+        uploadButtons.forEach(button => {
+          button.disabled = false;
+        });
+
+        fileInput.disabled = false;
+      }
+    }
+
+    document.getElementById('choose-file')
+      .addEventListener('click', () => fileInput.click());
+
+    document.getElementById('new-project')
+      .addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', event => {
+      const file = event.target.files[0];
+
+      if (file) analyzeFile(file);
+
+      event.target.value = '';
+    });
+
+    const dropzone = document.getElementById('dropzone');
+
+    dropzone.addEventListener('dragover', event => {
+      event.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', event => {
+      event.preventDefault();
+      dropzone.classList.remove('dragover');
+
+      const file = event.dataTransfer.files[0];
+
+      if (file) analyzeFile(file);
+    });
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(nav => {
+          nav.classList.remove('active');
+        });
+
+        item.classList.add('active');
+
+        document.querySelector('header .crumb').innerHTML =
+          `워크스페이스&nbsp; / &nbsp;<b>${item.dataset.view}</b>`;
+
+        if (item.dataset.view !== '대시보드') {
+          showToast(
+            `${item.dataset.view} 화면은 미리보기용 프로토타입입니다.`
+          );
+        }
+      });
+    });
+
+    document.querySelectorAll('.text-link').forEach(link => {
+      link.addEventListener('click', () => {
+        showToast(
+          '이 기능은 미리보기용 화면에 포함되어 있습니다.'
+        );
+      });
+    });
+  </script>
+</body>
+</html>
